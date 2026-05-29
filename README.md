@@ -7,7 +7,7 @@ Built for the Kaggle competition
 (M2 Mathematics & AI, Université Paris-Saclay).
 
 This is the **statistical-learning** counterpart of the deep-learning project
-[Electricity-Demand-Forecasting-in-France](https://github.com/mlahozy21/Electricity-Demand-Forecasting-in-France)
+[Electricity-Demand-Forecasting-in-France](https://github.com/mlahozy21/Deep-Learning-Electricity-Demand-Forecasting)
 (Python, multi-output neural network).
 
 ## Problem
