@@ -1,0 +1,121 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\title{\textbf{Net Electricity Demand Forecasting in France}\\
+\large Statistical learning for the 2022--2023 sobriety period}
+\author{Marcos Lahoz}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We forecast the daily \emph{net} electricity demand of France (consumption minus
+wind and solar production) over the 2022--2023 ``sobriety period''. A family of
+statistical learners --- additive models, an online state-space (Kalman) adaptation,
+quantile additive models and tree ensembles --- is trained and combined through online
+expert aggregation. Models are evaluated with the pinball loss at quantile $0.8$, the
+competition metric, which deliberately penalises under-forecasting. The
+Kalman-adapted GAM and the expert aggregation give the most reliable forecasts.
+\end{abstract}
+
+\section{Introduction}
+Balancing the electricity grid requires accurate short-term demand forecasts; a
+mismatch between supply and demand wastes energy or risks blackouts. We study the
+\emph{net demand}, the load that renewable (solar and wind) production cannot cover,
+\[
+\texttt{Net\_demand} = \texttt{Load} - (\texttt{Wind\_power} + \texttt{Solar\_power}),
+\]
+during the French ``sobriety period'' (September 2022--September 2023), when consumption
+patterns shifted. Forecasts are scored with the \textbf{pinball loss at quantile
+$\tau=0.8$},
+\[
+\mathcal{L}_\tau(y,\hat q) = \big(\tau - \mathbf{1}\{y < \hat q\}\big)\,(y-\hat q),
+\]
+which is asymmetric: under-forecasting the demand is penalised more heavily than
+over-forecasting, a conservative choice for grid security.
+
+\section{Data}
+Daily observations span 2013 to September 2022 for training, with the sobriety period
+held out for prediction. The covariates combine calendar information (time of year,
+day of week, public holidays, school breaks, daylight-saving), weather (temperature
+and smoothed/min/max variants, wind, nebulosity) and lagged production/consumption
+(one-day and one-week lags of load, net demand, solar and wind power). The data
+contains no missing values, so all variables are kept.
+
+\section{Methodology}
+Each model uses an estimation technique and covariate set suited to it; the final
+prediction combines them. While developing the models we validate on the most recent
+years before touching the test horizon.
+
+\paragraph{GAM + Kalman filter.} A Generalized Additive Model captures the smooth,
+non-linear effects of temperature, time of year and lagged demand. Its term
+contributions are then adapted online with a state-space (Kalman) filter whose
+variances are tuned by expectation--maximisation, letting the model track the regime
+change of the sobriety period. This is the single most reliable model.
+
+\paragraph{Ridge GAM.} A GAM with a double (ridge) penalty and automatic term
+selection yields a frugal, robust fit that resists over-fitting from overly flexible
+splines.
+
+\paragraph{GAM + Random Forest on residuals.} A Random Forest is fitted to the GAM
+residuals (on temperature, time of year, weekday and a time index) to recover
+non-linear structure missed by the additive model.
+
+\paragraph{Random Forest.} A tree ensemble over the full covariate set ($\texttt{mtry}$
+tuned), strong for capturing interactions but prone to over-smoothing trends.
+
+\paragraph{Quantile GAMs.} Quantile GAMs at $q=0.2$ and $q=0.8$ bound the predictions
+and directly target the asymmetric loss.
+
+\paragraph{Expert aggregation.} Finally, all models are combined online with the
+\texttt{opera} mixture (MLpol) under the pinball loss, so the ensemble weights adapt
+sequentially to whichever expert performs best.
+
+\section{Results}
+Table~\ref{tab:results} reports validation performance (RMSE and pinball loss at
+$0.8$). The Kalman-adapted GAM gives the best overall trade-off and the lowest RMSE,
+while the Random Forest reaches the lowest pinball loss; the online aggregation
+combines their strengths for the final submission.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Model} & \textbf{RMSE} & \textbf{Pinball@0.8} \\
+\midrule
+GAM + Kalman              & 1629 & 537 \\
+Ridge GAM                 & 1353 & 562 \\
+GAM + RF (residuals)      & 1754 & 716 \\
+Random Forest             & 2064 & 465 \\
+\bottomrule
+\end{tabular}
+\caption{Validation performance (lower is better).}
+\label{tab:results}
+\end{table}
+
+\section{Conclusion}
+Combining additive models with online Kalman adaptation, quantile regression and tree
+ensembles --- and aggregating them online --- produces robust net-demand forecasts
+through a period of shifting consumption. The asymmetric pinball objective is handled
+explicitly by the quantile GAMs and the aggregation. Natural extensions include richer
+state-space dynamics and probabilistic ensembling across quantiles.
+
+\begin{thebibliography}{9}
+\bibitem{kaggle} Kaggle. \emph{Net load forecasting --- sobriety period}.
+\url{https://www.kaggle.com/competitions/net-load-soberty-period}
+\bibitem{mgcv} Wood, S. N. \emph{Generalized Additive Models: An Introduction with R}.
+2nd ed., CRC Press, 2017 (\texttt{mgcv}).
+\bibitem{qgam} Fasiolo, M. et al. \emph{Fast calibrated additive quantile regression}.
+JASA, 2021 (\texttt{qgam}).
+\bibitem{opera} Gaillard, P. \& Goude, Y. \emph{opera: Online Prediction by Expert
+Aggregation}. R package.
+\end{thebibliography}
+
+\end{document}
