@@ -93,4 +93,12 @@ source("scripts/final_submission.R")
 ```
 
 The script loads the cached models in `Models/`, builds the GAM/Kalman, ridge-GAM,
-GAM+RF, Random-Forest and quan
+GAM+RF, Random-Forest and quantile-GAM forecasts, aggregates them online with `opera`,
+and writes `Submissions/submission.csv` in the Kaggle format (`Id, Net_demand`).
+
+To retrain the heavy models from scratch, uncomment the corresponding
+`saveRDS(...)` blocks in `scripts/final_submission.R`.
+
+## License
+
+Released under the MIT License — see `LICENSE`.
