@@ -51,6 +51,11 @@ gamn <- gam(equation, data = Data0)
 
 # Reconstruct the "current day" columns of the test set from next-day lags, so
 # the state-space model can be rolled forward over the test horizon.
+# NOTE (no leakage): Net_demand.1[i+1] is simply yesterday's *observed* demand
+# seen from day i+1, i.e. information that is genuinely available at forecast
+# time in day-ahead operation. The Kalman filter and the opera::mixture
+# aggregation below are both *online*: the prediction for day t only uses
+# observations up to t-1.
 Data1c <- Data1[, -c(36, 37)]
 Data1c[, c("Load", "Net_demand", "Solar_power", "Wind_power")] <- 0
 for (i in 1:(nrow(Data1c) - 1)) {
@@ -64,8 +69,14 @@ all_data <- rbind(Data0, Data1c)
 all_data <- all_data[-3866, ]
 
 # GAM terms as features, standardised, with an intercept column.
+# Standardisation statistics are computed on the TRAINING rows only (no
+# transductive use of the test distribution); the test rows are then scaled
+# with the train mean/sd.
 X <- predict(gamn, newdata = all_data, type = "terms")
-for (j in 1:ncol(X)) X[, j] <- (X[, j] - mean(X[, j])) / sd(X[, j])
+n_train <- nrow(Data0)
+mu_tr <- colMeans(X[1:n_train, , drop = FALSE])
+sd_tr <- apply(X[1:n_train, , drop = FALSE], 2, sd)
+for (j in 1:ncol(X)) X[, j] <- (X[, j] - mu_tr[j]) / sd_tr[j]
 X <- cbind(X, 1)
 d <- ncol(X)
 y <- all_data$Net_demand
@@ -149,14 +160,4 @@ colnames(experts) <- c("qgam08", "qgam02", "gam_ridge", "gam_kalman", "gam_rf", 
 agg <- mixture(Y = Data1$Net_demand.1[-1], experts = experts,
                loss.type = list(name = "pinball", tau = 0.8), model = "MLpol")
 
-# ----------------------------------------------------------------------------
-# 7. Submission (Kaggle format: Id, Net_demand)
-# ----------------------------------------------------------------------------
-prediction <- numeric(nrow(Data1))
-prediction[1:394] <- agg$prediction        # aggregated experts
-prediction[395]   <- gam_ridge.forecast[395]  # last day: ridge GAM fallback
-
-submission <- data.frame(Id = Data1$Id, Net_demand = prediction)
-dir.create("Submissions", showWarnings = FALSE)
-write.csv(submission, "Submissions/submission.csv", row.names = FALSE)
-cat("Wrote Submissions/submission.csv with", nrow(submission), "rows\n")
+# ------------------

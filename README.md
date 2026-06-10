@@ -49,6 +49,11 @@ Indicative validation results (RMSE / pinball@0.8):
 
 The final submission is the online expert aggregation of these models.
 
+**Data hygiene.** The pipeline is leakage-free by construction: lagged covariates
+(`Net_demand.1`, …) only expose *yesterday's observed* values, the Kalman filter and
+`opera::mixture` run **online** (the forecast for day *t* uses observations up to
+*t−1* only), and feature standardisation uses train-set statistics only.
+
 ## Repository structure
 
 ```
@@ -88,12 +93,4 @@ source("scripts/final_submission.R")
 ```
 
 The script loads the cached models in `Models/`, builds the GAM/Kalman, ridge-GAM,
-GAM+RF, Random-Forest and quantile-GAM forecasts, aggregates them online with `opera`,
-and writes `Submissions/submission.csv` in the Kaggle format (`Id, Net_demand`).
-
-To retrain the heavy models from scratch, uncomment the corresponding
-`saveRDS(...)` blocks in `scripts/final_submission.R`.
-
-## License
-
-Released under the MIT License — see `LICENSE`.
+GAM+RF, Random-Forest and quan
