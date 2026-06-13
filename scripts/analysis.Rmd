@@ -99,8 +99,8 @@ rf=randomForest(Net_demand ~Load.1 + Load.7 + Temp + Temp_s95 + Temp_s99 +
   Net_demand.1 + Net_demand.7, data=Data0[sel_a,],mtry=7)
 prf=predict(rf, newdata=Data0[sel_b,], method='vector')
 
-rmse(prf, Data0$Net_demand[sel_b]) ## 1353
-pinball_loss(Data0$Net_demand[sel_b], prf, 0.8) ## 562
+rmse(prf, Data0$Net_demand[sel_b]) ## Random Forest (mtry=7): RMSE ~ 1353
+pinball_loss(Data0$Net_demand[sel_b], prf, 0.8) ## Random Forest: pinball@0.8 ~ 562
 
 
 varImpPlot(rf,cex=1.3)
@@ -155,7 +155,10 @@ rf.predict <- predict(rf_err, newdata = Data0[sel_b,], method='vector')
 final_pred <- gam.predict + rf.predict
 
 rmse(final_pred, Data0$Net_demand[sel_b])
-pinball_loss(Data0$Net_demand[sel_b], gam_ridge.forecast, 0.8)
+# FIX: evaluate the GAM+RF (residuals) model on its OWN prediction (final_pred),
+# not on gam_ridge.forecast (a different model). The previous code was a
+# copy-paste bug that reported the ridge-GAM pinball under the GAM+RF heading.
+pinball_loss(Data0$Net_demand[sel_b], final_pred, 0.8)
 
 
 plot_data <- data.frame(
@@ -254,9 +257,15 @@ WeekDays + BH + s(Temp_s99_min, k = 10, bs = 'cr') + s(Temp_s99_max, k = 10, bs 
 s(Wind) + Christmas_break + te(as.numeric(Date), Nebulosity, k=c(4,10)) + s(Time, k = 10, bs ='cr') +s(Load.7, k = 5)
 gamn <- gam(equation, data = Data0[sel_a,])
 X <- predict(gamn, newdata=Data0, type='terms')
-###scaling columns
+### scaling columns — FIX: use TRAIN-ONLY statistics (sel_a) to standardise.
+### The previous version used full-sample mean/sd (including the validation
+### rows sel_b), i.e. transductive leakage that makes the validation numbers
+### mildly optimistic. final_submission.R already standardises train-only
+### (mu_tr/sd_tr); we match it here so the Rmd validation is leakage-free too.
+mu_tr <- colMeans(X[sel_a, , drop = FALSE])
+sd_tr <- apply(X[sel_a, , drop = FALSE], 2, sd)
 for (j in 1:ncol(X)){
-X[,j] <- (X[,j]-mean(X[,j])) / sd(X[,j])}
+X[,j] <- (X[,j]-mu_tr[j]) / sd_tr[j]}
 X <- cbind(X,1)
 d <- ncol(X)
 y <- Data0$Net_demand
@@ -285,49 +294,4 @@ ggplot(plot_data, aes(x = Date)) +
   theme_minimal()
 ```
 
-## Nebulosity en fonction de la date
-
-```{r}
-plot(Data0$Date, Data0$Nebulosity, pch=16, col='black')
-```
-
-## Load en fonction de date
-
-```{r}
-plot(Data0$Date, Data0$Load, type='l', col='black')
-K <- 7
-smooth <- stats::filter(Data0$Load, rep(1/K, K))
-lines(Data0$Date, smooth, col='red', lwd=2)
-```
-
-## Cycle hebdo Load en fonction de date
-
-```{r}
-sel <- which(Data0$Month==6 & Data0$Year==2021)
-plot(Data0$Date[sel], Data0$Load[sel], type='l')
-```
-
-## (Solar+Wind)/Load
-
-## Solar + wind
-
-```{r}
-plot(Data0$Date, Data0$Solar_power+Data0$Wind_power, col='blue')
-plot(Data0$Date, Data0$Solar_power+Data0$Wind_power/Data0$Load, col='blue')
-```
-
-## Summary
-
-```{r}
-summary(gam_ridge)
-```
-
-```{r}
-summary(gamn)
-```
-
-```{r}
-summary(qgam02)
-summary(qgam08)
-
-```
+## Nebulosity e

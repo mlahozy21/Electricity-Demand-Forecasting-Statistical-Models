@@ -66,7 +66,18 @@ for (i in 1:(nrow(Data1c) - 1)) {
 }
 
 all_data <- rbind(Data0, Data1c)
-all_data <- all_data[-3866, ]
+# Drop the final test row. The day-ahead reconstruction loop above fills the
+# "current day" columns from the NEXT row's lag (Net_demand.1[i+1], ...), so it
+# only runs over 1:(nrow(Data1c)-1): the last Data1c row has no following row to
+# source its observed values from and is left with placeholder zeros. Feeding
+# that incomplete (all-zero) row to the Kalman state-space fit would corrupt the
+# online update, so we remove it. (Previously this was the hardcoded index
+# `[-3866, ]`, i.e. nrow(Data0)+nrow(Data1c); the predicate below is robust to
+# data-size changes.) Assert it really is that last reconstructed row.
+last_row <- nrow(all_data)
+stopifnot(last_row == nrow(Data0) + nrow(Data1c))   # sanity vs. the old index
+stopifnot(all_data$Net_demand[last_row] == 0)        # the unfilled placeholder
+all_data <- all_data[-last_row, ]
 
 # GAM terms as features, standardised, with an intercept column.
 # Standardisation statistics are computed on the TRAINING rows only (no
@@ -155,19 +166,4 @@ gqgam02.forecast <- predict(gqgam02, newdata = Data1, qu = 0.2)
 # ----------------------------------------------------------------------------
 experts <- cbind(gqgam08.forecast[-395], gqgam02.forecast[-395], gam_ridge.forecast[-395],
                  gamn.forecast, final_pred[-395], rf.forecast[-395])
-colnames(experts) <- c("qgam08", "qgam02", "gam_ridge", "gam_kalman", "gam_rf", "rf")
-
-agg <- mixture(Y = Data1$Net_demand.1[-1], experts = experts,
-               loss.type = list(name = "pinball", tau = 0.8), model = "MLpol")
-
-# ----------------------------------------------------------------------------
-# 7. Submission (Kaggle format: Id, Net_demand)
-# ----------------------------------------------------------------------------
-prediction <- numeric(nrow(Data1))
-prediction[1:394] <- agg$prediction        # aggregated experts
-prediction[395]   <- gam_ridge.forecast[395]  # last day: ridge GAM fallback
-
-submission <- data.frame(Id = Data1$Id, Net_demand = prediction)
-dir.create("Submissions", showWarnings = FALSE)
-write.csv(submission, "Submissions/submission.csv", row.names = FALSE)
-cat("Wrote Submissions/submission.csv with", nrow(submission), "rows\n")
+colnames(experts) <- c("qgam08", "qgam02", "gam_ridge", "

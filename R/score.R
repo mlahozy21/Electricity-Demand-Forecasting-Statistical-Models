@@ -3,9 +3,15 @@ rmse<-function(y, ychap, digits=0)
   return(round(sqrt(mean((y-ychap)^2,na.rm=TRUE)),digits=digits))
 }
 
-mape<-function(y,ychap)
+mape<-function(y,ychap, eps=1e-8)
 {
-  return(round(100*mean(abs(y-ychap)/abs(y)),digits=2))
+  # Mean Absolute Percentage Error. Guards:
+  #  - na.rm=TRUE so missing values don't propagate to NA;
+  #  - division only over entries with |y| > eps (near-zero actuals would make
+  #    the percentage error explode / divide by ~0); those rows are dropped.
+  keep <- is.finite(y) & is.finite(ychap) & (abs(y) > eps)
+  if (!any(keep)) return(NA_real_)
+  return(round(100*mean(abs(y[keep]-ychap[keep])/abs(y[keep]), na.rm=TRUE), digits=2))
 }
 
 
@@ -36,35 +42,4 @@ pinball_loss <- function(y, yhat_quant, quant, output.vect=FALSE)
   loss_q <- array(0, dim=nq)
 
   for (q in 1:nq) {
-    loss_q[q] <- mean(((y-yhat_quant[,q]) * (quant[q]-(y<yhat_quant[,q]))), na.rm=T)
-    #pinball_loss <- pinball_loss + loss_q /nq
-    #print(pinball_loss)
-  }
-  if(output.vect==FALSE)
-  {
-    pinball_loss <- mean(loss_q)
-  }
-  if(output.vect==TRUE)
-  {
-    pinball_loss <- loss_q
-  }
-  return(pinball_loss)
-  
-}
-
-
-
-
-
-
-pinball_loss2 <- function(res, quant, output.vect=FALSE)
-{
-  loss_q <- mean((res) * (quant-(res<0)), na.rm=T)
-  return(loss_q)
-}
-
-
-
-
-
-
+    loss_q[q] <- mean(((y-yhat_quant[,q]) * (quant[q]-(y<yhat
