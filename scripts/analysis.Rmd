@@ -294,4 +294,49 @@ ggplot(plot_data, aes(x = Date)) +
   theme_minimal()
 ```
 
-## Nebulosity e
+## Nebulosity en fonction de la date
+
+```{r}
+plot(Data0$Date, Data0$Nebulosity, pch=16, col='black')
+```
+
+## Load en fonction de date
+
+```{r}
+plot(Data0$Date, Data0$Load, type='l', col='black')
+K <- 7
+smooth <- stats::filter(Data0$Load, rep(1/K, K))
+lines(Data0$Date, smooth, col='red', lwd=2)
+```
+
+## Cycle hebdo Load en fonction de date
+
+```{r}
+sel <- which(Data0$Month==6 & Data0$Year==2021)
+plot(Data0$Date[sel], Data0$Load[sel], type='l')
+```
+
+## (Solar+Wind)/Load
+
+## Solar + wind
+
+```{r}
+plot(Data0$Date, Data0$Solar_power+Data0$Wind_power, col='blue')
+plot(Data0$Date, Data0$Solar_power+Data0$Wind_power/Data0$Load, col='blue')
+```
+
+## Summary
+
+```{r}
+summary(gam_ridge)
+```
+
+```{r}
+summary(gamn)
+```
+
+```{r}
+summary(qgam02)
+summary(qgam08)
+
+```

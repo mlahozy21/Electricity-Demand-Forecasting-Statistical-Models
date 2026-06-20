@@ -98,4 +98,8 @@ GAM+RF, Random-Forest and quantile-GAM forecasts, aggregates them online with `o
 and writes `Submissions/submission.csv` in the Kaggle format (`Id, Net_demand`).
 
 To retrain the heavy models from scratch, uncomment the corresponding
-`saveRDS(...)` blocks in `scripts/final_submi
+`saveRDS(...)` blocks in `scripts/final_submission.R`.
+
+## License
+
+Released under the MIT License — see `LICENSE`.

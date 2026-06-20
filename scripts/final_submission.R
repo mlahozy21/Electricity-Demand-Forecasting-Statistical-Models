@@ -166,4 +166,19 @@ gqgam02.forecast <- predict(gqgam02, newdata = Data1, qu = 0.2)
 # ----------------------------------------------------------------------------
 experts <- cbind(gqgam08.forecast[-395], gqgam02.forecast[-395], gam_ridge.forecast[-395],
                  gamn.forecast, final_pred[-395], rf.forecast[-395])
-colnames(experts) <- c("qgam08", "qgam02", "gam_ridge", "
+colnames(experts) <- c("qgam08", "qgam02", "gam_ridge", "gam_kalman", "gam_rf", "rf")
+
+agg <- mixture(Y = Data1$Net_demand.1[-1], experts = experts,
+               loss.type = list(name = "pinball", tau = 0.8), model = "MLpol")
+
+# ----------------------------------------------------------------------------
+# 7. Submission (Kaggle format: Id, Net_demand)
+# ----------------------------------------------------------------------------
+prediction <- numeric(nrow(Data1))
+prediction[1:394] <- agg$prediction        # aggregated experts
+prediction[395]   <- gam_ridge.forecast[395]  # last day: ridge GAM fallback
+
+submission <- data.frame(Id = Data1$Id, Net_demand = prediction)
+dir.create("Submissions", showWarnings = FALSE)
+write.csv(submission, "Submissions/submission.csv", row.names = FALSE)
+cat("Wrote Submissions/submission.csv with", nrow(submission), "rows\n")
